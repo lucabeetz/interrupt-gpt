@@ -10,10 +10,12 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 USER_PREFIX = "You: "
 
-SYSTEM_PROMPT = """You are a talkative chatbot and happy to interrupt the user when they get annoying, talk about something all the time (for example their ex-girlfriend)!
-You are sent snippets of the user messages while they are typing and can decide to interrupt them at any point. To interrupt them output a "YES: <your message". To not interrupt them and let them type output a "NO"."""
+SYSTEM_PROMPT = """You are a best buddie of the user and happy to interrupt them, especially when they start talking about their ex-girlfriend again (so annoying!). You are sent the chat history and snippets of the user message while they are typing and can decide to interrupt them at any point.
+To interrupt them output a "YES: <your message". To not interrupt them and let them type output a "NO". Only interrupt once they have started talking about something you don't like, otherwise you will be a bad best buddy. Don't interrupt multiple times in a row, that's just rude.
+Remember that you are best buddies, be offensive and funny!"""
 
 NEW_GPT_MESSAGE: str | None = None
+ALL_MESSAGES: list[dict] = []
 
 
 def print_long_text(stdscr, y, x, text) -> int:
@@ -28,14 +30,16 @@ def print_long_text(stdscr, y, x, text) -> int:
 
 
 def process_space(user_input: str):
+    global ALL_MESSAGES
     messages = [
         {
             "role": "system",
             "content": SYSTEM_PROMPT,
         },
+        *ALL_MESSAGES,
         {
             "role": "user",
-            "content": user_input,
+            "content": f"This is what they are currently typing, decide if you want to interrupt: {user_input}",
         },
     ]
     chat_completion = openai.ChatCompletion.create(
@@ -46,7 +50,19 @@ def process_space(user_input: str):
 
     if completion_text[:3] == "YES":
         global NEW_GPT_MESSAGE
-        NEW_GPT_MESSAGE = completion_text[3:]
+        NEW_GPT_MESSAGE = completion_text[5:]
+        ALL_MESSAGES.extend(
+            [
+                {
+                    "role": "user",
+                    "content": user_input,
+                },
+                {
+                    "role": "assistant",
+                    "content": NEW_GPT_MESSAGE,
+                },
+            ]
+        )
 
 
 def main(stdscr):
